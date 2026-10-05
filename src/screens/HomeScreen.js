@@ -1,374 +1,274 @@
-// screens/HomeScreen.js
-import React, { useState, useEffect } from 'react';
-import { View, TextInput, Button, FlatList, Text, TouchableOpacity, StyleSheet, StatusBar, KeyboardAvoidingView, Platform } from 'react-native';
-import { db, auth } from '../../firebaseConfig';
-import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
+// screens/LoginScreen.js
+import React, { useState } from 'react';
+import {
+  View,
+  TextInput,
+  StyleSheet,
+  Alert,
+  Text,
+  TouchableOpacity
+} from 'react-native';
 
-export default function HomeScreen({ navigation }) {
-  const [nome, setNome] = useState('');
+import { auth } from '../../firebaseConfig';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword
+} from 'firebase/auth';
+
+export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
-  const [telefone, setTelefone] = useState('');
-  
-  const [idEditando, setIdEditando] = useState(null);
-  const [contatos, setContatos] = useState([]);
+  const [senha, setSenha] = useState('');
+  const [isCadastro, setIsCadastro] = useState(false);
 
-  // LER (Tempo real do Firestore)
-  useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'contatos'), (snapshot) => {
-      const lista = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setContatos(lista);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // FUNÇÃO AUXILIAR PARA LIMPAR FORMULÁRIO
-  const limparFormulario = () => {
-    setNome('');
-    setEmail('');
-    setTelefone('');
-    setIdEditando(null);
-  };
-
-  // CRIAR OU ATUALIZAR
-  const salvarContato = async () => {
-    if (!nome.trim() || !email.trim() || !telefone.trim()) {
-      alert('Por favor, preencha todos os campos.');
+  const handleAutenticacao = () => {
+    if (!email || !senha) {
+      Alert.alert(
+        'Campos obrigatórios',
+        'Por favor, preencha todos os campos.'
+      );
       return;
     }
 
-    const dadosContato = { nome, email, telefone };
+    if (isCadastro) {
+      createUserWithEmailAndPassword(auth, email, senha)
+        .then(() => {
+          Alert.alert(
+            'Cadastro realizado',
+            'Sua conta foi criada com sucesso!'
+          );
 
-    try {
-      if (idEditando !== null && idEditando !== '') {
-        const contatoRef = doc(db, 'contatos', idEditando);
-        await updateDoc(contatoRef, dadosContato);
-      } else {
-        const colecaoRef = collection(db, 'contatos');
-        await addDoc(colecaoRef, dadosContato);
-      }
-      limparFormulario();
-    } catch (error) {
-      console.error("Erro na operação:", error);
-      alert('Erro ao salvar dados no Firestore.');
+          setIsCadastro(false);
+        })
+        .catch((error) =>
+          Alert.alert(
+            'Erro ao cadastrar',
+            error.message
+          )
+        );
+    } else {
+      signInWithEmailAndPassword(auth, email, senha)
+        .then(() => navigation.replace('Home'))
+        .catch((error) =>
+          Alert.alert(
+            'Erro ao entrar',
+            error.message
+          )
+        );
     }
-  };
-
-  // EXCLUIR
-  const deletarContato = async (id) => {
-    try {
-      await deleteDoc(doc(db, 'contatos', id));
-      if (idEditando === id) {
-        limparFormulario();
-      }
-    } catch (error) {
-      console.error("Erro ao remover:", error);
-    }
-  };
-
-  // PREPARAR EDIÇÃO
-  const iniciarEdicao = (contato) => {
-    setIdEditando(contato.id);
-    setNome(contato.nome);
-    setEmail(contato.email);
-    setTelefone(contato.telefone);
-  };
-
-  // LOGOUT
-  const handleLogout = () => {
-    signOut(auth)
-      .then(() => navigation.replace('Login'))
-      .catch((error) => console.error(error));
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-      style={styles.externo}
-    >
-      <StatusBar barStyle="light-content" backgroundColor="#4F46E5" />
-      
-      {/* Barra Superior Estilizada */}
-      <View style={styles.barraSuperior}>
-        <View>
-          <Text style={styles.tituloApp}>Minha Agenda</Text>
-          <Text style={styles.subtitulo}>Gerencie seus contatos</Text>
-        </View>
-        <TouchableOpacity onPress={handleLogout} style={styles.btnLogout}>
-          <Text style={styles.btnLogoutTxt}>Sair</Text>
-        </TouchableOpacity>
-      </View>
+    <View style={styles.tela}>
 
+      {/* ÁREA PRINCIPAL */}
       <View style={styles.container}>
-        {/* Seção do Formulário */}
-        <View style={styles.formCard}>
-          <Text style={styles.formTitle}>
-            {idEditando ? "✏️ Editando Contato" : "➕ Novo Contato"}
+
+        {/* MARCA / ÍCONE */}
+        <View style={styles.logo}>
+          <Text style={styles.logoTexto}>A</Text>
+        </View>
+
+        <Text style={styles.titulo}>
+          {isCadastro ? 'Criar conta' : 'Boas-vindas'}
+        </Text>
+
+        <Text style={styles.subtitulo}>
+          {isCadastro
+            ? 'Cadastre-se para começar a usar sua agenda'
+            : 'Entre para acessar seus contatos'}
+        </Text>
+
+        {/* FORMULÁRIO */}
+        <View style={styles.formulario}>
+
+          <Text style={styles.label}>
+            E-mail
           </Text>
+
           <TextInput
-            placeholder="Nome Completo"
-            placeholderTextColor="#9CA3AF"
-            style={styles.input}
-            value={nome}
-            onChangeText={setNome}
-          />
-          <TextInput
-            placeholder="E-mail"
-            placeholderTextColor="#9CA3AF"
+            placeholder="Digite seu e-mail"
+            placeholderTextColor="#829AB1"
             style={styles.input}
             value={email}
             onChangeText={setEmail}
-            keyboardType="email-address"
             autoCapitalize="none"
+            keyboardType="email-address"
           />
-          <TextInput
-            placeholder="Telefone"
-            placeholderTextColor="#9CA3AF"
-            style={styles.input}
-            value={telefone}
-            onChangeText={setTelefone}
-            keyboardType="phone-pad"
-          />
-          
-          <View style={styles.areaBotoesForm}>
-            <TouchableOpacity 
-              style={[styles.btnPrincipal, idEditando ? styles.btnEdicao : styles.btnCriacao]} 
-              onPress={salvarContato}
-            >
-              <Text style={styles.btnPrincipalTxt}>
-                {idEditando ? "Salvar Alterações" : "Adicionar Contato"}
-              </Text>
-            </TouchableOpacity>
 
-            {idEditando && (
-              <TouchableOpacity style={styles.btnCancelar} onPress={limparFormulario}>
-                <Text style={styles.btnCancelarTxt}>Cancelar</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          <Text style={styles.label}>
+            Senha
+          </Text>
+
+          <TextInput
+            placeholder="Digite sua senha"
+            placeholderTextColor="#829AB1"
+            style={styles.input}
+            value={senha}
+            onChangeText={setSenha}
+            secureTextEntry
+          />
+
+          <TouchableOpacity
+            style={styles.botao}
+            onPress={handleAutenticacao}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.botaoTexto}>
+              {isCadastro ? 'Criar minha conta' : 'Entrar'}
+            </Text>
+          </TouchableOpacity>
+
         </View>
 
-        {/* Título da Lista */}
-        <Text style={styles.secaoTitulo}>Contatos Salvos ({contatos.length})</Text>
+        {/* ALTERNAR LOGIN / CADASTRO */}
+        <TouchableOpacity
+          onPress={() => setIsCadastro(!isCadastro)}
+          style={styles.alternarContainer}
+        >
+          <Text style={styles.alternarTexto}>
+            {isCadastro
+              ? 'Já possui uma conta? '
+              : 'Ainda não possui uma conta? '}
 
-        {/* Listagem */}
-        <FlatList
-          data={contatos}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 30 }}
-          renderItem={({ item }) => (
-            <View style={styles.cardItem}>
-              <View style={styles.avatarContainer}>
-                <Text style={styles.avatarTxt}>{item.nome.charAt(0).toUpperCase()}</Text>
-              </View>
-              
-              <View style={styles.infoContainer}>
-                <Text style={styles.txtNome} numberOfLines={1}>{item.nome}</Text>
-                <Text style={styles.txtDetalhes} numberOfLines={1}>✉️ {item.email}</Text>
-                <Text style={styles.txtDetalhes} numberOfLines={1}>📱 {item.telefone}</Text>
-              </View>
-              
-              <View style={styles.botoesContainer}>
-                <TouchableOpacity onPress={() => iniciarEdicao(item)} style={styles.btnAcaoEditar}>
-                  <Text style={styles.btnAcaoTxt}>✏️</Text>
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => deletarContato(item.id)} style={styles.btnAcaoDeletar}>
-                  <Text style={styles.btnAcaoTxt}>🗑️</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-        />
+            <Text style={styles.destaque}>
+              {isCadastro ? 'Entrar' : 'Cadastrar'}
+            </Text>
+          </Text>
+        </TouchableOpacity>
+
       </View>
-    </KeyboardAvoidingView>
+
+      {/* RODAPÉ */}
+      <Text style={styles.rodape}>
+        Minha Agenda
+      </Text>
+
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  externo: { 
-    flex: 1, 
-    backgroundColor: '#F3F4F6' 
+
+  tela: {
+    flex: 1,
+    backgroundColor: '#F4F7FA',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 18,
   },
-  barraSuperior: { 
-    width: '100%', 
-    backgroundColor: '#4F46E5', 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 20, 
-    paddingTop: 50, 
-    paddingBottom: 20,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: { ios: 0.1, android: 0.2 },
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  tituloApp: { 
-    fontSize: 22, 
-    fontWeight: 'bold', 
-    color: '#FFFFFF' 
-  },
-  subtitulo: { 
-    fontSize: 13, 
-    color: '#E0E7FF', 
-    marginTop: 2 
-  },
-  btnLogout: { 
-    backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-    paddingVertical: 8, 
-    paddingHorizontal: 16, 
-    borderRadius: 20 
-  },
-  btnLogoutTxt: { 
-    color: '#FFFFFF', 
-    fontWeight: '600', 
-    fontSize: 14 
-  },
-  container: { 
-    flex: 1, 
-    width: '100%', 
-    maxWidth: 650, 
-    alignSelf: 'center',
-    paddingHorizontal: 16, 
-    paddingTop: 16 
-  },
-  formCard: {
+
+  container: {
+    width: '100%',
+    maxWidth: 410,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    padding: 25,
+
+    borderWidth: 1,
+    borderColor: '#E1E8ED',
+
+    shadowColor: '#102A43',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 3,
   },
-  formTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#374151',
-    marginBottom: 12,
-  },
-  input: { 
-    borderWidth: 1, 
-    borderColor: '#E5E7EB', 
-    padding: 12, 
-    marginBottom: 12, 
-    borderRadius: 10, 
-    backgroundColor: '#F9FAFB', 
-    fontSize: 15,
-    color: '#1F2937'
-  },
-  areaBotoesForm: { 
-    flexDirection: 'row', 
-    gap: 10, 
-    marginTop: 4 
-  },
-  btnPrincipal: {
-    flex: 2,
-    paddingVertical: 12,
-    borderRadius: 10,
+
+  logo: {
+    width: 58,
+    height: 58,
+    borderRadius: 15,
+    backgroundColor: '#D9F0F2',
+    alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 15,
   },
-  btnCriacao: {
-    backgroundColor: '#4F46E5',
+
+  logoTexto: {
+    color: '#147D92',
+    fontSize: 25,
+    fontWeight: '800',
   },
-  btnEdicao: {
-    backgroundColor: '#D97706',
+
+  titulo: {
+    color: '#243B53',
+    fontSize: 25,
+    fontWeight: '800',
+    textAlign: 'center',
   },
-  btnPrincipalTxt: {
+
+  subtitulo: {
+    color: '#829AB1',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 7,
+    marginBottom: 24,
+    lineHeight: 19,
+  },
+
+  formulario: {
+    width: '100%',
+  },
+
+  label: {
+    color: '#52606D',
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+
+  input: {
+    height: 48,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#D9E2EC',
+    borderRadius: 9,
+    paddingHorizontal: 13,
+    marginBottom: 15,
+    color: '#243B53',
+    fontSize: 14,
+  },
+
+  botao: {
+    height: 47,
+    backgroundColor: '#147D92',
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 3,
+  },
+
+  botaoTexto: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
     fontSize: 15,
-  },
-  btnCancelar: {
-    flex: 1,
-    backgroundColor: '#E5E7EB',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  btnCancelarTxt: {
-    color: '#4B5563',
-    fontWeight: '600',
-    fontSize: 15,
-  },
-  secaoTitulo: {
-    fontSize: 16,
     fontWeight: '700',
-    color: '#4B5563',
-    marginBottom: 8,
-    marginLeft: 4,
   },
-  cardItem: { 
-    flexDirection: 'row', 
-    backgroundColor: '#FFFFFF', 
-    marginBottom: 10, 
-    borderRadius: 12, 
-    padding: 14, 
-    alignItems: 'center', 
-    borderWidth: 1, 
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  avatarContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#EEF2FF',
-    justifyContent: 'center',
+
+  alternarContainer: {
+    marginTop: 21,
     alignItems: 'center',
-    marginRight: 12,
   },
-  avatarTxt: {
-    color: '#4F46E5',
-    fontWeight: 'bold',
-    fontSize: 18,
+
+  alternarTexto: {
+    color: '#829AB1',
+    fontSize: 13,
+    textAlign: 'center',
   },
-  infoContainer: { 
-    flex: 1, 
-    paddingRight: 8 
+
+  destaque: {
+    color: '#147D92',
+    fontWeight: '800',
   },
-  txtNome: { 
-    fontSize: 16, 
-    fontWeight: 'bold', 
-    color: '#1F2937', 
-    marginBottom: 2 
+
+  rodape: {
+    position: 'absolute',
+    bottom: 20,
+    color: '#9FB3C8',
+    fontSize: 12,
   },
-  txtDetalhes: { 
-    fontSize: 13, 
-    color: '#6B7280', 
-    marginTop: 1 
-  },
-  botoesContainer: { 
-    flexDirection: 'row', 
-    gap: 6 
-  },
-  btnAcaoEditar: { 
-    backgroundColor: '#FEF3C7', 
-    padding: 8, 
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  btnAcaoDeletar: { 
-    backgroundColor: '#FEE2E2', 
-    padding: 8, 
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  btnAcaoTxt: { 
-    fontSize: 14 
-  }
+
 });
